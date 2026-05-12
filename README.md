@@ -1,1 +1,1 @@
-# -Fourth-Corner-Ising-Model-
+# Fourth Corner Ising Regression Model
