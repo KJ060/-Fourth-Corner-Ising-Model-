@@ -6,8 +6,9 @@ generate_parameter_convergence_plots <- function(Ns = c(50, 100, 200, 400, 800),
                                                  Ps = c(30, 60),
                                                  L = 3, K = 2,
                                                  B_reps = 1000,
-                                                 result_dir = "Simulation_Results",
-                                                 output_dir = "Convergence_Plots") {
+                                                 result_dir = "../../Simulation_Results",
+                                                 output_dir = "../../Convergence_Plots",
+                                                 method = "unpenalized") {
   
   if (!dir.exists(output_dir)) {
     dir.create(output_dir)
@@ -18,22 +19,26 @@ generate_parameter_convergence_plots <- function(Ns = c(50, 100, 200, 400, 800),
   for (n in Ns) {
     for (p in Ps) {
       
-      filename = paste0(result_dir, "/FCIR_estimates_N", n, "_P", p, ".Rdata")
+      if (method == "unpenalized") {
+        filename = paste0(result_dir, "/FCIR_estimates_N", n, "_P", p, ".Rdata")
+      } else {
+        filename = paste0(result_dir, "/FCIR_estimates_penalized_N", n, "_P", p, ".Rdata")
+      }
       if (!file.exists(filename)) {
-        warning(paste())
+        warning(paste("File not found:", filename, "- Skipping."))
         next 
       }
       
       load(filename)
       
 
-      err_beta = as.data.frame(sweep(est_beta_0, 2, beta_0, "-"))
-      colnames(err_beta) = paste0("beta_0[", 1:L, "]")
+      err_beta = as.data.frame(sweep(sweep(est_beta_0, 2, beta_0, "-"), 2, abs(beta_0), "/"))
+      colnames(err_beta) = paste0("beta_0[", 1:L, "]\n(True: ", round(beta_0, 3), ")")
       df_beta = pivot_longer(err_beta, cols = everything(), names_to = "Parameter", values_to = "Error")
       
 
-      err_alpha = as.data.frame(sweep(est_alpha_0, 2, alpha_0, "-"))
-      colnames(err_alpha) = paste0("alpha_0[", 1:L, "]")
+      err_alpha = as.data.frame(sweep(sweep(est_alpha_0, 2, alpha_0, "-"), 2, abs(alpha_0), "/"))
+      colnames(err_alpha) = paste0("alpha_0[", 1:L, "]\n(True: ", round(alpha_0, 3), ")")
       df_alpha = pivot_longer(err_alpha, cols = everything(), names_to = "Parameter", values_to = "Error")
       
 
@@ -43,7 +48,7 @@ generate_parameter_convergence_plots <- function(Ns = c(50, 100, 200, 400, 800),
       for (l in 1:L) {
         for (k in 1:K) {
           err_B[, idx] = est_B_mat[l, k, ] - B_mat[l, k]
-          col_names_B = c(col_names_B, paste0("B[", l, ",", k, "]"))
+          col_names_B = c(col_names_B, paste0("B[", l, ",", k, "]\n(True: ", round(B_mat[l, k], 3), ")"))
           idx = idx + 1
         }
       }
@@ -58,7 +63,7 @@ generate_parameter_convergence_plots <- function(Ns = c(50, 100, 200, 400, 800),
       for (i in 1:L) {
         for (j in 1:K) {
           err_A[, idx] = est_A_mat[i, j, ] - A_mat[i, j]
-          col_names_A = c(col_names_A, paste0("A[", i, ",", j, "]"))
+          col_names_A = c(col_names_A, paste0("A[", i, ",", j, "]\n(True: ", round(A_mat[i, j], 3), ")"))
           idx = idx + 1
         }
       }
@@ -90,24 +95,31 @@ generate_parameter_convergence_plots <- function(Ns = c(50, 100, 200, 400, 800),
     
     df_param = df_all %>% filter(Parameter == param)
     
+    y_label = if (grepl("^(beta|alpha)", param)) {
+      "Relative Error: (Estimated - True) / |True|"
+    } else {
+      "Estimation Error: (Estimated - True)"
+    }
+    
     plot_obj <- ggplot(df_param, aes(x = N_factor, y = Error)) +
       geom_boxplot(fill = "skyblue", color = "black", 
                    outlier.shape = 16, outlier.alpha = 0.3, width = 0.5) +
       geom_hline(yintercept = 0, color = "red", linetype = "dashed", linewidth = 1) +
       facet_wrap(~ P_label, ncol = 2) +
       theme_minimal(base_size = 14) +
-      labs(title = paste("Convergence of Parameter:", param),
+      labs(title = paste("Convergence of Parameter:", param, "(", method, ")"),
            x = "Sample Size (N)",
-           y = "Estimation Error (Estimated - True)") +
+           y = y_label) +
       theme(plot.title = element_text(hjust = 0.5, face = "bold"),
             strip.background = element_rect(fill = "lightgray", color = NA),
             strip.text = element_text(face = "bold", size = 12))
     
-    safe_param_name = gsub("\\[", "_", param)
+    safe_param_name = gsub("\n.*", "", param) 
+    safe_param_name = gsub("\\[", "_", safe_param_name)
     safe_param_name = gsub("\\]", "", safe_param_name)
     safe_param_name = gsub(",", "_", safe_param_name)
     
-    plot_filename = paste0(output_dir, "/Convergence_", safe_param_name, ".png")
+    plot_filename = paste0(output_dir, "/Convergence_MixedError_", method, "_", safe_param_name, ".png")
     
     ggsave(filename = plot_filename, plot = plot_obj, width = 10, height = 6, dpi = 300)
     
@@ -115,4 +127,5 @@ generate_parameter_convergence_plots <- function(Ns = c(50, 100, 200, 400, 800),
   
 }
 
-generate_parameter_convergence_plots()
+generate_parameter_convergence_plots(method = "unpenalized")
+generate_parameter_convergence_plots(method = "penalized")
