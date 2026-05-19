@@ -98,7 +98,7 @@ generate_parameter_convergence_plots <- function(Ns = c(50, 100, 200, 400, 800),
     y_label = if (grepl("^(beta|alpha)", param)) {
       "Relative Error: (Estimated - True) / |True|"
     } else {
-      "Estimation Error: (Estimated - True)"
+      "Absolute Error: (Estimated - True)"
     }
     
     plot_obj <- ggplot(df_param, aes(x = N_factor, y = Error)) +
